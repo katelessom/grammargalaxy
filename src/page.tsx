@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import GameMission from "./game-mission";
-import { playNamedJingle, playSound } from "./audio";
+import { playNamedJingle, playSound, stopNamedJingles } from "./audio";
 import { grammarTasks, topicsForLevel } from "./task-bank";
 import type { Level } from "./task-bank";
 
@@ -114,6 +114,7 @@ const unlockAchievements = (profile: Profile, history: HistoryItem[]) => ({ ...p
 const musicState: { audio: HTMLAudioElement | null; track: string; token: number } = { audio: null, track: "", token: 0 };
 
 function stopCurrentMusic() {
+  musicState.token += 1;
   if (!musicState.audio) return;
   musicState.audio.pause();
   musicState.audio.removeAttribute("src");
@@ -169,6 +170,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => { window.localStorage.setItem("grammar-galaxy-settings", JSON.stringify({ soundOn, musicOn, soundVolume, musicVolume })); }, [soundOn, musicOn, soundVolume, musicVolume]);
+  useEffect(() => { if (!musicOn || musicVolume <= 0 || !soundOn || soundVolume <= 0) stopNamedJingles(); }, [musicOn, musicVolume, soundOn, soundVolume]);
   useCosmicCursor();
   const musicTrack = mission
     ? `./music-${mission.game === "race" ? "rocket-race" : mission.game === "repair" ? "starship-repair" : "codebreaker"}.mp3`
@@ -245,7 +247,7 @@ export default function Home() {
       const perfect = reward.correct === reward.total;
       const updated = { ...current, xp: current.xp + reward.xp, stardust: current.stardust + reward.stardust, missions: current.missions + 1, hints: Math.min(9, current.hints + (perfect ? 1 : 0)), perfectMissions: current.perfectMissions + (perfect ? 1 : 0) };
       const nextHistory = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]") as HistoryItem[];
-      if (soundOn && soundVolume > 0) { playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./jingle-achievement.mp3" : "./jingle-mission-complete.mp3", soundVolume); }
+      if (soundOn && soundVolume > 0) { stopNamedJingles(); playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./jingle-achievement.mp3" : "./jingle-mission-complete.mp3", soundVolume); }
       setHistory(nextHistory); commitProfile(updated, nextHistory); setMission(null); setView("profile");
     }} />}
 
@@ -349,7 +351,7 @@ function useLocationMusic(track: string, enabled: boolean, volume: number) {
     };
     const start = () => {
       unlocked.current = true;
-      stopCurrentMusic();
+      stopCurrentMusic(); stopNamedJingles();
       if (!enabled || volume <= 0) return;
       const token = musicState.token + 1;
       musicState.token = token;
@@ -359,11 +361,11 @@ function useLocationMusic(track: string, enabled: boolean, volume: number) {
       musicState.audio = named; musicState.track = track; void named.play().catch(() => { if (musicState.token === token) startFallback(); });
     };
     if (unlocked.current) start(); else window.addEventListener("pointerdown", start, { once: true });
-    if (!enabled || volume <= 0) { stopCurrentMusic(); stopFallback(); }
+    if (!enabled || volume <= 0) { stopCurrentMusic(); stopNamedJingles(); stopFallback(); }
     return () => { window.removeEventListener("pointerdown", start); stopCurrentMusic(); stopFallback(); };
   }, [enabled, track, volume]);
   useEffect(() => {
-    if (volume <= 0 || !enabled) stopCurrentMusic();
+    if (volume <= 0 || !enabled) { stopCurrentMusic(); stopNamedJingles(); }
     else if (musicState.audio) musicState.audio.volume = Math.min(1, volume / 100);
     if (fallback.current) fallback.current.gain.gain.setTargetAtTime((volume / 100) * .025, fallback.current.context.currentTime, .08);
   }, [enabled, volume]);

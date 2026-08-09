@@ -5,6 +5,7 @@ export type SoundKind = "navigate" | "select" | "launch" | "repair" | "fragment"
 type WebkitWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
 let sharedContext: AudioContext | null = null;
+const namedJingles = new Set<HTMLAudioElement>();
 
 function context() {
   if (typeof window === "undefined") return null;
@@ -63,6 +64,19 @@ export function playSound(kind: SoundKind, volume: number) {
 
 export function playNamedJingle(path: string, volume: number) {
   if (typeof window === "undefined" || volume <= 0) return;
+  stopNamedJingles();
   const audio = new Audio(path); audio.volume = Math.min(1, volume / 100); audio.preload = "auto";
+  namedJingles.add(audio);
+  audio.addEventListener("ended", () => namedJingles.delete(audio), { once: true });
+  audio.addEventListener("error", () => namedJingles.delete(audio), { once: true });
   void audio.play().catch(() => undefined);
+}
+
+export function stopNamedJingles() {
+  namedJingles.forEach((audio) => {
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+  });
+  namedJingles.clear();
 }

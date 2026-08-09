@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tasksFor } from "./task-bank";
 import type { GrammarTask, Level } from "./task-bank";
-import { playNamedJingle, playSound } from "./audio";
+import { playSound } from "./audio";
 
 type GameId = "race" | "repair" | "code";
 type MissionTask = GrammarTask & {
@@ -130,7 +130,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     setIndex((value) => value + 1); setSelected(""); setConfirmed(false); setHintShown(false);
   }
   function finish(finalRecords = records) {
-    setShowResult(true); if (soundOn && soundVolume > 0) { playSound("reward", soundVolume); playNamedJingle("./jingle-mission-complete.mp3", soundVolume); }
+    setShowResult(true); if (soundOn && soundVolume > 0) playSound("reward", soundVolume);
     const reward = rewardFor(finalRecords);
     const history = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]");
     history.unshift({ id: `${Date.now()}`, date: new Date().toISOString(), game, level, topic, correct: reward.correct, total: missionTasks.length, xp: reward.xp, stardust: reward.stardust, seconds: Math.round((Date.now() - startTime.current) / 1000), usedHints });
