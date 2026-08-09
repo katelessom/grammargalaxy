@@ -338,32 +338,49 @@ function useCosmicCursor() {
 function useLocationMusic(track: string, enabled: boolean, volume: number) {
   const fallback = useRef<{ context: AudioContext; gain: GainNode; oscillators: OscillatorNode[] } | null>(null);
   const unlocked = useRef(false);
+  const volumeRef = useRef(volume);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
   useEffect(() => {
     const stopFallback = () => { if (!fallback.current) return; fallback.current.oscillators.forEach((oscillator) => { try { oscillator.stop(); } catch {} }); void fallback.current.context.close(); fallback.current = null; };
     const startFallback = () => {
-      if (!enabled || fallback.current) return;
+      if (!enabled || volumeRef.current <= 0 || fallback.current) return;
       const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) return;
-      const context = new AudioContextClass(); const gain = context.createGain(); gain.gain.value = (volume / 100) * .025; gain.connect(context.destination);
+      const context = new AudioContextClass(); const gain = context.createGain(); gain.gain.value = (volumeRef.current / 100) * .025; gain.connect(context.destination);
       const root = track.includes("race") ? 123.47 : track.includes("repair") ? 98 : track.includes("codebreaker") ? 116.54 : track.includes("cabin") ? 146.83 : track.includes("shop") ? 130.81 : 110;
       const oscillators = [root, root * 1.5, root * 2].map((frequency, index) => { const oscillator = context.createOscillator(); const localGain = context.createGain(); oscillator.type = index === 1 ? "sine" : "triangle"; oscillator.frequency.value = frequency; localGain.gain.value = .24 / (index + 1); oscillator.connect(localGain); localGain.connect(gain); oscillator.start(); return oscillator; });
       fallback.current = { context, gain, oscillators };
     };
     const start = () => {
+      if (musicState.audio && musicState.track === track && !musicState.audio.paused) {
+        musicState.audio.volume = Math.min(1, volumeRef.current / 100);
+        return;
+      }
       unlocked.current = true;
       stopCurrentMusic(); stopNamedJingles();
-      if (!enabled || volume <= 0) return;
+      if (!enabled || volumeRef.current <= 0) return;
       const token = musicState.token + 1;
       musicState.token = token;
-      const named = new Audio(track); named.loop = true; named.preload = "auto"; named.volume = Math.min(1, volume / 100);
+      const named = new Audio(track); named.loop = true; named.preload = "auto"; named.playsInline = true; named.volume = Math.min(1, volumeRef.current / 100);
       const startFallbackForCurrent = () => { if (musicState.token === token) startFallback(); };
       named.addEventListener("playing", stopFallback, { once: true }); named.addEventListener("error", startFallbackForCurrent, { once: true });
       musicState.audio = named; musicState.track = track; void named.play().catch(() => { if (musicState.token === token) startFallback(); });
     };
-    if (unlocked.current) start(); else window.addEventListener("pointerdown", start, { once: true });
-    if (!enabled || volume <= 0) { stopCurrentMusic(); stopNamedJingles(); stopFallback(); }
-    return () => { window.removeEventListener("pointerdown", start); stopCurrentMusic(); stopFallback(); };
-  }, [enabled, track, volume]);
+    const armStart = () => start();
+    if (unlocked.current) start();
+    else {
+      window.addEventListener("pointerdown", armStart, { once: true, passive: true });
+      window.addEventListener("touchstart", armStart, { once: true, passive: true });
+      window.addEventListener("click", armStart, { once: true });
+    }
+    if (!enabled || volumeRef.current <= 0) { stopCurrentMusic(); stopNamedJingles(); stopFallback(); }
+    return () => {
+      window.removeEventListener("pointerdown", armStart);
+      window.removeEventListener("touchstart", armStart);
+      window.removeEventListener("click", armStart);
+      stopCurrentMusic(); stopFallback();
+    };
+  }, [enabled, track]);
   useEffect(() => {
     if (volume <= 0 || !enabled) { stopCurrentMusic(); stopNamedJingles(); }
     else if (musicState.audio) musicState.audio.volume = Math.min(1, volume / 100);

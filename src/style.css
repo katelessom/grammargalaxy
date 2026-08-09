@@ -15,6 +15,7 @@ html { scroll-behavior: smooth; }
 body { margin: 0; color: var(--ink); background: var(--navy); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button, input, select { font: inherit; }
 button { color: inherit; }
+button, input, select, a { touch-action: manipulation; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(77,230,255,.6); outline-offset: 3px; }
 
 .app-shell { min-height: 100vh; overflow: hidden; background: radial-gradient(circle at 20% -10%, #1b2665 0, transparent 34%), radial-gradient(circle at 92% 12%, #511b72 0, transparent 30%), #03091c; }
@@ -601,3 +602,31 @@ svg { width: 1.2em; height: 1.2em; display: block; flex: none; }
 .placed-decorations{z-index:5}.cabin-slot{width:clamp(64px,7.2vw,122px);aspect-ratio:1;animation:cabin-object-breathe 4.8s ease-in-out infinite;transform-origin:50% 92%}.cabin-slot>span{left:18%;right:18%;bottom:9%;height:12%}.cabin-slot img{width:100%;height:100%;object-fit:contain;border-radius:0;mix-blend-mode:normal;filter:drop-shadow(0 12px 10px rgba(0,0,0,.58)) drop-shadow(0 0 7px rgba(111,220,255,.28))}.cabin-slot small{bottom:-8px}
 .cabin-slot-1{left:50%;right:auto;top:45%;width:112px}.cabin-slot-2{left:29%;top:29%;width:92px}.cabin-slot-3{left:auto;right:7%;top:15%;width:120px}.cabin-slot-4{left:auto;right:20%;top:29%;bottom:auto;width:108px}.cabin-slot-5{left:auto;right:20%;top:auto;bottom:4%;width:142px}.cabin-slot-6{left:38%;right:auto;top:16%;bottom:auto;width:96px}.cabin-slot-7{left:45%;top:24%;width:100px}.cabin-slot-8{left:60%;top:43%;width:105px}.cabin-slot-9{right:4%;top:39%;width:92px}.cabin-slot-10{left:34%;bottom:5%;width:110px}.cabin-slot-11{left:44%;bottom:3%;width:105px}.cabin-slot-12{right:30%;top:15%;width:110px}.cabin-slot-13{right:9%;bottom:5%;width:124px}.cabin-slot-14{left:56%;top:13%;width:102px}.cabin-slot-15{left:26%;bottom:5%;width:100px}.cabin-slot-16{left:67%;bottom:4%;width:105px}.cabin-slot-17{left:21%;top:42%;width:90px}.cabin-slot-18{right:2%;top:27%;width:92px}.cabin-slot-19{left:39%;top:38%;width:88px}.cabin-slot-20{right:13%;top:44%;width:102px}
 @media(max-width:680px){.cabin-slot{width:58px!important}.cabin-slot-1{left:48%;top:45%}.cabin-slot-2{left:27%;top:30%}.cabin-slot-3{right:4%;top:17%}.cabin-slot-4{right:18%;top:32%}.cabin-slot-5{right:17%;bottom:5%}.cabin-slot-6{left:38%;top:19%}.cabin-slot-7{left:47%;top:28%}.cabin-slot-8{left:60%;top:46%}.cabin-slot-9{right:2%;top:43%}.cabin-slot-10{left:31%;bottom:7%}.cabin-slot-11{left:43%;bottom:4%}.cabin-slot-12{right:29%;top:18%}.cabin-slot-13{right:5%;bottom:4%}.cabin-slot-14{left:58%;top:16%}.cabin-slot-15{left:22%;bottom:5%}.cabin-slot-16{left:65%;bottom:5%}.cabin-slot-17{left:18%;top:45%}.cabin-slot-18{right:1%;top:31%}.cabin-slot-19{left:38%;top:40%}.cabin-slot-20{right:11%;top:47%}}
+
+/* Final mobile overrides must stay last so desktop gameplay rules cannot win. */
+@media (max-width: 680px) {
+  body { overflow-x: hidden; }
+  .app-shell { overflow: clip; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .topbar { height: 64px; padding: 0 10px; gap: 8px; }
+  .brand { font-size: 14px; min-width: 0; }.brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.brand img { width: 34px; height: 34px; }
+  .pilot-pill { gap: 5px; margin-left: auto; }.pilot-pill .currency { font-size: 11px; }.pilot-copy { display: none; }.pilot-pill > button:not(.icon-button) { padding: 4px; }
+  .section { width: min(100% - 20px,1240px); padding: 42px 0; }
+  .hero { min-height: calc(100svh - 64px); }.hero-copy { width: calc(100% - 28px); margin-left: 14px; padding: 48px 0 86px; }.hero h1 { font-size: 42px; }.hero-actions { flex-direction: column; }.hero-actions button { width: 100%; }
+  .modal-backdrop { align-items: start; padding: 10px; overflow: auto; }.modal-card { width: 100%; max-height: none; margin: 8px 0 88px; padding: 20px 16px; border-radius: 22px; }.modal-card h2 { font-size: 28px; }
+  .avatar-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }.avatar-grid button { min-height: 86px; }.level-grid { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px; }.level-grid button { min-height: 42px; padding: 0; }
+  .game-grid,.profile-grid,.shop-grid,.cabin-inventory { grid-template-columns: 1fr; }.game-card,.game-card:last-child { grid-column: auto; min-height: auto; grid-template-rows: 190px auto; }.game-card p { min-height: 0; }.game-actions { flex-direction: column; }.game-actions button { width: 100%; }
+  .captain-card,.wide-card,.cabin-card,.achievement-card { grid-column: auto; }.stat-card { min-height: 120px; }
+  .shop-hero { min-height: 300px; margin-bottom: 22px; }.shop-hero h2 { font-size: 42px; }.shop-catalog-title { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .shop-card { min-height: auto; }.shop-card > img { height: 132px; }.boost-panel { grid-template-columns: 1fr; }.boost-art { width: 150px; }
+  .full-cabin { min-height: 620px; }.cabin-pilot img { width: 132px; }.cabin-edit-state { right: 10px; top: 12px; }.owned-grid { grid-template-columns: 1fr; }.owned-grid article { grid-template-columns: 54px minmax(0,1fr); }.owned-grid button { grid-column: 1 / 3; width: 100%; }
+  .mobile-nav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 170; justify-content: space-around; }
+  .audio-dock { right: 8px; bottom: calc(82px + env(safe-area-inset-bottom)); }.mission-overlay ~ .audio-dock { bottom: 8px; }.audio-dock-panel { width: calc(100vw - 16px); }.audio-dock-panel > label { grid-template-columns: 88px minmax(0,1fr) 34px; }
+  .mission-overlay { overflow-x: hidden; }
+  .mission-topbar { min-height: 58px; grid-template-columns: auto minmax(0,1fr) auto; gap: 8px; padding: 7px 10px; }.mission-topbar > div { min-width: 0; }.mission-topbar > div b,.mission-topbar > div small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.mission-exit { padding: 8px 9px; font-size: 11px; }.mission-counter { font-size: 11px; }
+  .mission-progress { top: 58px; height: 6px; }.mission-stage { width: calc(100% - 16px); min-height: calc(100svh - 64px); display: grid; grid-template-columns: 1fr; grid-template-rows: auto auto; gap: 12px; align-items: start; padding: 12px 0 24px; }.question-card { grid-column: 1; grid-row: 2; padding: 16px 12px; border-radius: 20px; }.stage-visual { grid-column: 1; grid-row: 1; min-height: 116px; }
+  .challenge-lead { display: block; font-size: 11px; }.transmission { padding: 12px; font-size: 17px; overflow-wrap: anywhere; }
+  .planet-route { min-height: 390px; border-radius: 18px; }.planet-field { inset: 12px 8px 78px; }.answer-planet { width: 47%; min-height: 122px; padding-top: 52px; }.answer-planet span { font-size: 11px; }.answer-planet.long-answer span { font-size: 8px; }.route-ship { width: 52px; height: 52px; }.cargo-bay { left: 8px; right: 8px; bottom: 8px; flex-direction: column; align-items: stretch; gap: 6px; }
+  .decoder-slots { grid-template-columns: repeat(2,minmax(0,1fr)); }.decoder-slots button { min-height: 46px; font-size: 12px; }.code-fragment-bank { grid-template-columns: repeat(2,minmax(0,1fr)); }.code-fragment-bank button { min-height: 54px; font-size: 12px; }.code-controls { grid-template-columns: 1fr; }
+  .duel-arena { min-height: 170px; grid-template-columns: 1fr; gap: 10px; padding: 12px; }.duel-lane { min-height: 48px; }.shield-dome,.enemy-dock { width: 78px; height: 78px; }.duel-pilot,.duel-enemy { grid-template-columns: 86px 1fr; align-items: center; justify-items: start; width: 100%; }.duel-options { grid-template-columns: 1fr; }
+  .repair-reactor,.code-console { min-height: 140px; flex-direction: row; padding: 10px; gap: 10px; }.reactor-art,.code-orb { width: 104px; height: 104px; }.reactor-art img,.code-orb img { width: 74px; height: 74px; }
+}
