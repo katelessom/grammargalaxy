@@ -16,8 +16,8 @@ type AnswerRecord = { task: MissionTask; chosen: string; correct: boolean };
 
 const gameCopy: Record<GameId, { title: string }> = {
   race: { title: "Rocket Race" },
-  repair: { title: "Starship Repair" },
-  code: { title: "Alien Codebreaker" },
+  repair: { title: "Sentence Builder" },
+  code: { title: "Grammar Duel" },
 };
 
 function shuffle<T>(items: readonly T[]) {
@@ -61,15 +61,10 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     const ordered = [...shuffle(laneOrdered.filter((task) => !seen.includes(task.id))), ...shuffle(laneOrdered.filter((task) => seen.includes(task.id)))].slice(0, Math.min(10, pool.length));
     return ordered.map((task, taskIndex) => {
       const options = shuffle(task.options);
-      const faulty = options.find((option) => normalized(option) !== normalized(task.answer)) ?? options[0];
       const displayPrompt = game === "repair"
-        ? taskIndex % 3 === 0
-          ? `Faulty sentence: ${completedSentence(task, faulty)}`
-          : taskIndex % 3 === 1
-            ? `Editor’s draft: ${completedSentence(task, faulty)}`
-            : `Restore the original meaning: ${completedSentence(task, faulty)}`
+        ? task.prompt
         : game === "code"
-          ? taskIndex % 3 === 0 ? `Recover the missing grammar signal: ${task.prompt}` : taskIndex % 3 === 1 ? `Assemble the form that completes this message: ${task.prompt}` : `Build the exact grammar sequence: ${task.prompt}`
+          ? taskIndex % 3 === 0 ? `Enemy challenge: ${task.prompt}` : taskIndex % 3 === 1 ? `Shield test: ${task.prompt}` : `Final shot: ${task.prompt}`
           : task.prompt;
       const fullChoice = game === "race" && taskIndex % 2 === 1 && task.prompt.includes("___");
       const choiceLabels = fullChoice
@@ -78,8 +73,8 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
       const instruction = game === "race"
         ? fullChoice ? "Fly to the planet with the only complete correct sentence." : "Choose the grammar form that completes the route log."
         : game === "repair"
-          ? taskIndex % 3 === 0 ? "Replace the damaged language module." : taskIndex % 3 === 1 ? "Correct the editor’s draft without changing its meaning." : "Find the form that restores the original sentence."
-          : taskIndex % 3 === 0 ? "Select code fragments and place them in the correct order." : taskIndex % 3 === 1 ? "Build the missing form from signal fragments." : "Decode the grammar sequence before transmitting it.";
+          ? "Tap the word modules in the right order, then lock the sentence."
+          : "Choose the correct grammar shot before the rival drone breaks your shield.";
       return { ...task, options, choiceLabels, displayPrompt, instruction };
     });
   }, [game, key, level, topic]);
@@ -126,15 +121,15 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     const correct = normalized(answer) === normalized(task.answer);
     const nextRecords = [...records, { task, chosen: answer, correct }];
     setConfirmed(true); setRecords(nextRecords);
-    if (soundOn) playSound(game === "race" ? "launch" : game === "repair" ? "repair" : "transmit", soundVolume);
-    if (advanceAutomatically) window.setTimeout(() => advance(nextRecords), game === "race" ? 1050 : game === "repair" ? 520 : 340);
+    if (soundOn) playSound(game === "race" ? "launch" : game === "repair" ? "repair" : correct ? "transmit" : "remove", soundVolume);
+    if (advanceAutomatically) window.setTimeout(() => advance(nextRecords), game === "race" ? 1050 : game === "repair" ? 650 : 780);
   }
   function advance(answerRecords = records) {
     if (index + 1 >= missionTasks.length) return finish(answerRecords);
     setIndex((value) => value + 1); setSelected(""); setConfirmed(false); setHintShown(false);
   }
   function finish(finalRecords = records) {
-    setShowResult(true); if (soundOn) { playSound("reward", soundVolume); playNamedJingle("./audio/jingle-mission-complete.mp3", soundVolume); }
+    setShowResult(true); if (soundOn) { playSound("reward", soundVolume); playNamedJingle("./jingle-mission-complete.mp3", soundVolume); }
     const reward = rewardFor(finalRecords);
     const history = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]");
     history.unshift({ id: `${Date.now()}`, date: new Date().toISOString(), game, level, topic, correct: reward.correct, total: missionTasks.length, xp: reward.xp, stardust: reward.stardust, seconds: Math.round((Date.now() - startTime.current) / 1000), usedHints });
@@ -155,10 +150,10 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     <div className="mission-progress" aria-label={`${index + (confirmed ? 1 : 0)} of ${missionTasks.length} answered`}><span style={{ width: `${((index + (confirmed ? 1 : 0)) / missionTasks.length) * 100}%` }} /></div>
     <div className="mission-stage" key={`${task.id}-${index}`}>
       <GameProgress game={game} correct={correctCount} total={missionTasks.length} />
-      <article className="question-card"><div className="question-meta"><span>{game === "race" ? "PLOT A COURSE TO THE RIGHT PLANET" : game === "repair" ? "REPAIR THE SENTENCE" : "ASSEMBLE THE GRAMMAR CODE"}</span><button className="hint-button" disabled={confirmed || hintShown || hints <= 0} onClick={revealHint}><MissionIcon name="hint" /><span>Hint charge</span><b>{hints}</b></button></div><p className="challenge-lead">{task.instruction}</p><div className={`transmission ${game}`}>{task.displayPrompt}</div>{hintShown && <div className="hint-panel"><MissionIcon name="hint" /><p>{ruleHint(topic)}</p></div>}
+      <article className="question-card"><div className="question-meta"><span>{game === "race" ? "PLOT A COURSE TO THE RIGHT PLANET" : game === "repair" ? "BUILD THE SENTENCE" : "GRAMMAR DUEL"}</span><button className="hint-button" disabled={confirmed || hintShown || hints <= 0} onClick={revealHint}><MissionIcon name="hint" /><span>Hint charge</span><b>{hints}</b></button></div><p className="challenge-lead">{task.instruction}</p><div className={`transmission ${game}`}>{task.displayPrompt}</div>{hintShown && <div className="hint-panel"><MissionIcon name="hint" /><p>{ruleHint(topic)}</p></div>}
         {game === "race" && <PlanetRoute options={task.options} labels={task.choiceLabels} selected={selected} disabled={confirmed} collected={correctCount} onSelect={(option) => { setSelected(option); confirmAnswer(option, true); }} />}
-        {game === "repair" && <RepairBoard task={task} selected={selected} disabled={confirmed} onSelect={(option) => { setSelected(option); confirmAnswer(option, true); }} />}
-        {game === "code" && <CodeAssembler task={task} disabled={confirmed} onFragment={() => { if (soundOn) playSound("fragment", soundVolume); }} onRemove={() => { if (soundOn) playSound("remove", soundVolume); }} onTransmit={(answer) => confirmAnswer(answer, true)} />}
+        {game === "repair" && <SentenceBuilder task={task} disabled={confirmed} onFragment={() => { if (soundOn) playSound("fragment", soundVolume); }} onRemove={() => { if (soundOn) playSound("remove", soundVolume); }} onSubmit={(answer) => confirmAnswer(answer, true)} />}
+        {game === "code" && <GrammarDuel task={task} selected={selected} disabled={confirmed} correct={correctCount} total={missionTasks.length} onSelect={(option) => { setSelected(option); confirmAnswer(option, true); }} />}
         {confirmed && <div className="answer-saved">Answer saved. Moving to the next task.</div>}
       </article>
     </div>
@@ -180,7 +175,7 @@ function codePlan(value: string) {
   return suffix ? { parts: [clean.slice(0, -suffix.length), suffix], joiner: "" } : { parts: [clean], joiner: "" };
 }
 
-function CodeAssembler({ task, disabled, onFragment, onRemove, onTransmit }: { task: MissionTask; disabled: boolean; onFragment: () => void; onRemove: () => void; onTransmit: (answer: string) => void }) {
+function SentenceBuilder({ task, disabled, onFragment, onRemove, onSubmit }: { task: MissionTask; disabled: boolean; onFragment: () => void; onRemove: () => void; onSubmit: (answer: string) => void }) {
   const plan = useMemo(() => codePlan(task.answer), [task.answer]);
   const fragments = useMemo<CodeFragment[]>(() => {
     const correct = plan.parts.map((label, index) => ({ id: `core-${index}-${label}`, label }));
@@ -192,7 +187,7 @@ function CodeAssembler({ task, disabled, onFragment, onRemove, onTransmit }: { t
   }, [plan.parts, task.answer, task.options]);
   const [sequence, setSequence] = useState<CodeFragment[]>([]);
   const used = new Set(sequence.map((fragment) => fragment.id));
-  const decoded = sequence.map((fragment) => fragment.label).join(plan.joiner);
+  const built = sequence.map((fragment) => fragment.label).join(plan.joiner);
 
   function add(fragment: CodeFragment) {
     if (disabled || sequence.length >= plan.parts.length || used.has(fragment.id)) return;
@@ -205,25 +200,34 @@ function CodeAssembler({ task, disabled, onFragment, onRemove, onTransmit }: { t
     setSequence((current) => current.filter((_, index) => index !== fragmentIndex));
   }
 
-  return <div className="code-assembler">
-    <div className="decoder-console">
-      <div className="decoder-header"><span>DECODE SEQUENCE</span><small>{sequence.length} / {plan.parts.length} fragments</small></div>
-      <div className="decoder-slots">{Array.from({ length: plan.parts.length }, (_, slot) => <button disabled={disabled || !sequence[slot]} onClick={() => remove(slot)} className={sequence[slot] ? "filled" : ""} aria-label={sequence[slot] ? `Remove ${sequence[slot].label}` : `Empty code position ${slot + 1}`} key={slot}>{sequence[slot]?.label ?? ""}</button>)}</div>
-      <div className="decoder-beam" aria-hidden="true"><i /><i /><i /></div>
+  return <div className="sentence-builder">
+    <div className="builder-console">
+      <div className="decoder-header"><span>SENTENCE MODULES</span><small>{sequence.length} / {plan.parts.length} placed</small></div>
+      <div className="decoder-slots">{Array.from({ length: plan.parts.length }, (_, slot) => <button disabled={disabled || !sequence[slot]} onClick={() => remove(slot)} className={sequence[slot] ? "filled" : ""} aria-label={sequence[slot] ? `Remove ${sequence[slot].label}` : `Empty sentence position ${slot + 1}`} key={slot}>{sequence[slot]?.label ?? ""}</button>)}</div>
+      <p className="builder-preview">{sequence.length ? completedSentence(task, built) : "Build the missing phrase from left to right."}</p>
     </div>
-    <div className="code-fragment-bank">{fragments.map((fragment, fragmentIndex) => <button disabled={disabled || used.has(fragment.id) || sequence.length >= plan.parts.length} onClick={() => add(fragment)} style={{ "--fragment": fragmentIndex } as React.CSSProperties} key={fragment.id}><span>{fragment.label}</span><i aria-hidden="true" /></button>)}</div>
-    <div className="code-controls"><button className="glass-button" disabled={disabled || sequence.length === 0} onClick={() => { onRemove(); setSequence([]); }}>Clear sequence</button><button className="primary-button" disabled={disabled || sequence.length !== plan.parts.length} onClick={() => onTransmit(decoded)}>Transmit code</button></div>
+    <div className="code-fragment-bank builder-bank">{fragments.map((fragment, fragmentIndex) => <button disabled={disabled || used.has(fragment.id) || sequence.length >= plan.parts.length} onClick={() => add(fragment)} style={{ "--fragment": fragmentIndex } as React.CSSProperties} key={fragment.id}><span>{fragment.label}</span><i aria-hidden="true" /></button>)}</div>
+    <div className="code-controls"><button className="glass-button" disabled={disabled || sequence.length === 0} onClick={() => { onRemove(); setSequence([]); }}>Clear build</button><button className="primary-button" disabled={disabled || sequence.length !== plan.parts.length} onClick={() => onSubmit(built)}>Lock sentence</button></div>
+  </div>;
+}
+
+function GrammarDuel({ task, selected, disabled, correct, total, onSelect }: { task: MissionTask; selected: string; disabled: boolean; correct: number; total: number; onSelect: (option: string) => void }) {
+  const enemyPower = Math.max(8, 100 - (correct / total) * 100);
+  const shield = Math.max(12, 100 - ((total - correct) / total) * 34);
+  return <div className="grammar-duel">
+    <div className="duel-arena" aria-hidden="true">
+      <div className="duel-pilot"><img src="./assets/cabin-items/shield.png" alt="" /><span>Shield {Math.round(shield)}%</span><i><b style={{ width: `${shield}%` }} /></i></div>
+      <div className={`duel-beam ${selected ? "fired" : ""}`} />
+      <div className="duel-enemy"><img src="./assets/decor/repair-11.webp" alt="" /><span>Drone {Math.round(enemyPower)}%</span><i><b style={{ width: `${enemyPower}%` }} /></i></div>
+    </div>
+    <div className="duel-options">{task.options.map((option, optionIndex) => <button disabled={disabled} className={selected === option ? "selected" : ""} onClick={() => onSelect(option)} style={{ "--delay": optionIndex } as React.CSSProperties} key={option}><span>Shot {String.fromCharCode(65 + optionIndex)}</span><b>{option}</b></button>)}</div>
   </div>;
 }
 
 function GameProgress({ game, correct, total }: { game: GameId; correct: number; total: number }) {
   if (game === "race") return <div className="stage-visual race-stage"><div className="race-track">{Array.from({ length: total }, (_, index) => <i className={index < correct ? "active" : ""} key={index} />)}<img className="race-rocket" src="./assets/decor/object-00.webp" alt="Rocket progress marker" style={{ left: `${3 + (correct / total) * 82}%` }} /><img className="race-portal" src="./assets/decor/object-03.webp" alt="Finish portal" /></div></div>;
-  if (game === "repair") return <div className="stage-visual repair-stage"><div className="repair-reactor"><div className="reactor-art"><span className="reactor-ring" /><img src="./assets/games/repair-logo.webp" alt="Ship reactor" style={{ filter: `grayscale(${1 - correct / total}) brightness(${.45 + correct / total})` }} /></div><div className="repair-meter"><span><b>{correct}</b> systems online</span><i><b style={{ width: `${(correct / total) * 100}%` }} /></i></div></div></div>;
-  return <div className="stage-visual code-stage"><div className="code-console"><div className="code-orb"><img src="./assets/games/code-logo.webp" alt="Alien decoder" /><i style={{ clipPath: `inset(${100 - (correct / total) * 100}% 0 0)` }} /></div><div className="code-meter"><span>Signal decoded</span><b>{Math.round((correct / total) * 100)}%</b><i><b style={{ width: `${(correct / total) * 100}%` }} /></i></div></div></div>;
-}
-
-function RepairBoard({ task, selected, disabled, onSelect }: { task: MissionTask; selected: string; disabled: boolean; onSelect: (option: string) => void }) {
-  return <div className="repair-board"><div className={`repair-slot ${selected ? "filled" : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!disabled) onSelect(event.dataTransfer.getData("text/plain")); }}>{selected ? completedSentence(task, selected) : "Drop a language module here"}</div><div className="module-bank">{task.options.map((option) => <button draggable={!disabled} onDragStart={(event) => event.dataTransfer.setData("text/plain", option)} disabled={disabled} className={selected === option ? "selected" : ""} onClick={() => onSelect(option)} key={option}><img src="./assets/decor/repair-08.webp" alt="" /><span>{option}</span></button>)}</div><small>Drag a module to the slot, or tap it on a phone or tablet.</small></div>;
+  if (game === "repair") return <div className="stage-visual repair-stage"><div className="repair-reactor"><div className="reactor-art"><span className="reactor-ring" /><img src="./assets/games/repair-logo.webp" alt="Sentence engine" style={{ filter: `grayscale(${1 - correct / total}) brightness(${.45 + correct / total})` }} /></div><div className="repair-meter"><span><b>{correct}</b> sentences locked</span><i><b style={{ width: `${(correct / total) * 100}%` }} /></i></div></div></div>;
+  return <div className="stage-visual code-stage"><div className="code-console"><div className="code-orb"><img src="./assets/games/code-logo.webp" alt="Duel drone" /><i style={{ clipPath: `inset(${100 - (correct / total) * 100}% 0 0)` }} /></div><div className="code-meter"><span>Enemy integrity</span><b>{Math.max(0, 100 - Math.round((correct / total) * 100))}%</b><i><b style={{ width: `${Math.max(0, 100 - (correct / total) * 100)}%` }} /></i></div></div></div>;
 }
 
 function MissionIcon({ name }: { name: "exit" | "clock" | "hint" | "check" | "close" | "lock" }) {

@@ -49,16 +49,16 @@ const games: Game[] = [
     instructions: ["Choose a grammar topic and CEFR level.", "Plot a course to one of four planets. Some planets show a missing form; others show a complete sentence.", "Every landing counts as a completed question. Correct answers collect mission cargo and move the rocket forward.", "After ten planets, review every mistake, correct sentence and reward."],
   },
   {
-    id: "repair", title: "Starship Repair", kicker: "Engineering mission", color: "coral",
-    description: "Restore ship systems by rebuilding sentences and choosing the only grammatically complete repair.",
+    id: "repair", title: "Sentence Builder", kicker: "Word order mission", color: "coral",
+    description: "Build correct English sentences from floating word modules and lock the final structure into the grammar engine.",
     image: "./assets/scenes/repair.webp", emblem: "./assets/games/repair-logo.webp",
-    instructions: ["Choose a grammar topic and CEFR level.", "Inspect a faulty sentence, editor’s draft or damaged meaning, then drag the correct language module into place.", "The repair is saved immediately and the next system opens automatically.", "After ten different repairs, inspect the full report, correct sentences and rewards."],
+    instructions: ["Choose a grammar topic and CEFR level.", "Read the sentence frame and inspect the floating word modules.", "Tap modules in the correct order to build the missing phrase, then lock the sentence.", "After ten builds, inspect every correct sentence, comment and reward."],
   },
   {
-    id: "code", title: "Alien Codebreaker", kicker: "Puzzle mission", color: "violet",
-    description: "Intercept alien grammar signals, select the useful code fragments and assemble them in the only correct sequence.",
+    id: "code", title: "Grammar Duel", kicker: "Battle mission", color: "violet",
+    description: "Face a rival drone, fire the correct grammar answer and keep your shield stronger than the enemy attack.",
     image: "./assets/scenes/code.webp", emblem: "./assets/games/code-logo.webp",
-    instructions: ["Choose a grammar topic and CEFR level.", "Inspect the intercepted sentence and select code fragments from the signal bank.", "Place the fragments in the correct order. Tap a placed fragment to remove it, then transmit the completed code.", "After ten decoded signals, open the final report with answers, comments, XP and Stardust."],
+    instructions: ["Choose a grammar topic and CEFR level.", "Read the duel prompt before the enemy drone charges.", "Tap the correct answer to fire. Correct shots damage the drone; wrong shots hit your shield.", "After ten turns, collect rewards and review every answer."],
   },
 ];
 
@@ -157,10 +157,10 @@ export default function Home() {
   useEffect(() => { window.localStorage.setItem("grammar-galaxy-settings", JSON.stringify({ soundOn, musicOn, soundVolume, musicVolume })); }, [soundOn, musicOn, soundVolume, musicVolume]);
   useCosmicCursor();
   const musicTrack = mission
-    ? `./audio/music-${mission.game === "race" ? "rocket-race" : mission.game === "repair" ? "starship-repair" : "codebreaker"}.mp3`
-    : view === "cabin" ? "./audio/music-cabin.mp3"
-      : view === "shop" ? "./audio/music-shop.mp3"
-        : "./audio/music-main-menu.mp3";
+    ? `./music-${mission.game === "race" ? "rocket-race" : mission.game === "repair" ? "starship-repair" : "codebreaker"}.mp3`
+    : view === "cabin" ? "./music-cabin.mp3"
+      : view === "shop" ? "./music-shop.mp3"
+        : "./music-main-menu.mp3";
   useLocationMusic(musicTrack, musicOn, musicVolume);
 
   const rank = useMemo(() => !profile ? "Space Cadet" : profile.xp >= 2400 ? "Galaxy Commander" : profile.xp >= 1200 ? "Star Captain" : profile.xp >= 500 ? "Orbit Explorer" : "Space Cadet", [profile]);
@@ -177,14 +177,17 @@ export default function Home() {
     const owned = current.purchases.includes(item.id);
     const displayed = current.equippedItems.includes(item.id);
     if (owned) {
-      const equippedItems = displayed ? current.equippedItems.filter((id) => id !== item.id) : [...current.equippedItems, item.id];
+      const equippedItems = displayed ? current.equippedItems.filter((id) => id !== item.id) : [...new Set([...current.equippedItems, item.id])];
       if (soundOn) playSound(displayed ? "remove" : "place", soundVolume);
       return commitProfile({ ...current, equippedItems, equipped: equippedItems[0] ?? null });
     }
     if (current.stardust >= item.price) {
-      const equippedItems = [...current.equippedItems, item.id];
+      const purchases = [...new Set([...current.purchases, item.id])];
+      const equippedItems = [...new Set([...current.equippedItems, item.id])];
       if (soundOn) playSound("purchase", soundVolume);
-      commitProfile({ ...current, stardust: current.stardust - item.price, purchases: [...current.purchases, item.id], equippedItems, equipped: equippedItems[0] ?? null, newCabinItem: item.id });
+      commitProfile({ ...current, stardust: current.stardust - item.price, purchases, equippedItems, equipped: equippedItems[0] ?? null, newCabinItem: item.id });
+      setView("cabin");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
   function clearCabinArrival() {
@@ -214,7 +217,7 @@ export default function Home() {
         <section className="hero"><img src="./assets/mission-transition.webp" alt="A shuttle travelling to three grammar missions" /><div className="hero-shade" /><div className="hero-copy"><span className="eyebrow">ENGLISH GRAMMAR · SPACE ADVENTURE</span><h1>Launch your next<br /><em>grammar mission.</em></h1><p>Master English, earn Stardust and turn your cabin into the coolest place in the galaxy.</p><div className="hero-actions"><button className="primary-button" onClick={() => document.getElementById("missions")?.scrollIntoView({ behavior: "smooth" })}>Choose a mission <Icon name="next" /></button><button className="ghost-button" onClick={() => setInstructionGame(games[0])}>How it works</button></div><div className="hero-stats"><span><b>{profile?.missions ?? 0}</b> missions</span><span><b>{profile?.xp ?? 0}</b> total XP</span><span><b>{profile?.hints ?? 3}</b> hint charges</span></div></div></section>
       }
       {(view === "home" || view === "missions") &&
-        <section id="missions" className="section missions-section"><div className="section-heading"><div><span className="eyebrow">MISSION CONTROL</span><h2>Choose your adventure</h2></div><p>Three different grammar games, {grammarTasks.length} unique tasks and levels from A1 to C1. Each mission prioritises unseen questions.</p></div><div className="game-grid">{games.map((game) => <article className={`game-card ${game.color}`} key={game.id}><div className="game-visual"><img src={game.image} alt={`${game.title} space scene`} /><span>{game.id === "race" ? "Planet routes" : game.id === "repair" ? "Drag and repair" : "Free-response code"}</span></div><div className="game-content"><div className="game-title-row"><img className="game-emblem" src={game.emblem} alt="" /><div><span className="game-kicker">{game.kicker}</span><h3>{game.title}</h3></div></div><p>{game.description}</p><div className="game-actions"><button className="primary-button small" onClick={() => setSelectedGame(game)}>Play <Icon name="next" /></button><button className="glass-button" onClick={() => setInstructionGame(game)}><Icon name="info" />How to Play</button></div></div></article>)}</div></section>
+        <section id="missions" className="section missions-section"><div className="section-heading"><div><span className="eyebrow">MISSION CONTROL</span><h2>Choose your adventure</h2></div><p>Three different grammar games, {grammarTasks.length} unique tasks and levels from A1 to C1. Each mission prioritises unseen questions.</p></div><div className="game-grid">{games.map((game) => <article className={`game-card ${game.color}`} key={game.id}><div className="game-visual"><img src={game.image} alt={`${game.title} space scene`} /><span>{game.id === "race" ? "Planet routes" : game.id === "repair" ? "Sentence modules" : "Grammar battle"}</span></div><div className="game-content"><div className="game-title-row"><img className="game-emblem" src={game.emblem} alt="" /><div><span className="game-kicker">{game.kicker}</span><h3>{game.title}</h3></div></div><p>{game.description}</p><div className="game-actions"><button className="primary-button small" onClick={() => setSelectedGame(game)}>Play <Icon name="next" /></button><button className="glass-button" onClick={() => setInstructionGame(game)}><Icon name="info" />How to Play</button></div></div></article>)}</div></section>
       }
 
       {view === "profile" && <ProfileView profile={profile ?? emptyProfile} rank={rank} history={history} onEdit={() => { setDraft(profile ?? emptyProfile); setProfileOpen(true); }} onCabin={() => nav("cabin")} />}
@@ -228,7 +231,7 @@ export default function Home() {
       const perfect = reward.correct === reward.total;
       const updated = { ...current, xp: current.xp + reward.xp, stardust: current.stardust + reward.stardust, missions: current.missions + 1, hints: Math.min(9, current.hints + (perfect ? 1 : 0)), perfectMissions: current.perfectMissions + (perfect ? 1 : 0) };
       const nextHistory = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]") as HistoryItem[];
-      if (soundOn) { playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./audio/jingle-achievement.mp3" : "./audio/jingle-mission-complete.mp3", soundVolume); }
+      if (soundOn) { playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./jingle-achievement.mp3" : "./jingle-mission-complete.mp3", soundVolume); }
       setHistory(nextHistory); commitProfile(updated, nextHistory); setMission(null); setView("profile");
     }} />}
 
@@ -263,7 +266,7 @@ function Cabin({ profile, onShop, onToggleItem, onArrivalComplete }: { profile: 
 }
 
 function Shop({ profile, onBuy, onBuyHint }: { profile: Profile; onBuy: (item: (typeof shopItems)[number]) => void; onBuyHint: () => void }) {
-  return <section className="section shop-page"><div className="shop-hero"><img src="./assets/scenes/shop.webp" alt="A futuristic orbital rewards boutique" /><div><span className="eyebrow">ORBITAL MARKET</span><h2>Space Shop</h2><p>Spend mission Stardust on twenty illustrated cabin objects or recharge a limited hint.</p><span className="shop-balance"><Icon name="dust" />{profile.stardust} Stardust</span></div></div><div className="shop-catalog-title"><div><span className="eyebrow">CABIN COLLECTION</span><h3>Twenty objects to collect</h3></div><span>{profile.purchases.length} owned · {profile.equippedItems.length} displayed</span></div><div className="shop-grid"><article className="shop-card hint-card"><img src="./assets/decor/object-08.webp" alt="Blue hint crystal" /><h3>Hint Charge</h3><p>One rule reminder for a difficult question. Maximum 9 charges.</p><button className="primary-button small" onClick={onBuyHint} disabled={profile.stardust < 35 || profile.hints >= 9}><Icon name="dust" />35</button></article>{shopItems.map((item) => { const owned = profile.purchases.includes(item.id); const displayed = profile.equippedItems.includes(item.id); return <article className={`shop-card ${displayed ? "equipped" : ""}`} key={item.id}><img src={item.image} alt={item.name} /><h3>{item.name}</h3><p>{displayed ? "Displayed in your cabin" : owned ? "Purchased and ready to place" : item.kind}</p><button className="primary-button small" onClick={() => onBuy(item)} disabled={!owned && profile.stardust < item.price}>{displayed ? <><Icon name="check" />Store item</> : owned ? "Display item" : <><Icon name="dust" />{item.price}</>}</button></article>; })}</div></section>;
+  return <section className="section shop-page"><div className="shop-hero"><img src="./assets/scenes/shop.webp" alt="A futuristic orbital rewards boutique" /><div><span className="eyebrow">ORBITAL MARKET</span><h2>Space Shop</h2><p>Spend mission Stardust on twenty illustrated cabin objects or recharge a limited hint.</p><span className="shop-balance"><Icon name="dust" />{profile.stardust} Stardust</span></div></div><div className="shop-catalog-title"><div><span className="eyebrow">CABIN COLLECTION</span><h3>Twenty objects to collect</h3></div><span>{profile.purchases.length} owned · {profile.equippedItems.length} displayed</span></div><div className="shop-grid"><article className="shop-card hint-card"><img src="./assets/decor/object-08.webp" alt="Blue hint crystal" /><h3>Hint Charge</h3><p>One rule reminder for a difficult question. Maximum 9 charges.</p><button className="primary-button small" onClick={onBuyHint} disabled={profile.stardust < 35 || profile.hints >= 9}><Icon name="dust" />35</button></article>{shopItems.map((item) => { const owned = profile.purchases.includes(item.id); const displayed = profile.equippedItems.includes(item.id); return <article className={`shop-card ${displayed ? "equipped" : ""}`} key={item.id}><img src={item.image} alt={item.name} /><h3>{item.name}</h3><p>{displayed ? "Displayed in your cabin" : owned ? "Purchased and ready to place" : item.kind}</p><button className="primary-button small" onClick={() => onBuy(item)} disabled={!owned && profile.stardust < item.price}>{displayed ? <><Icon name="check" />Store item</> : owned ? "Display item" : <><Icon name="dust" />Buy + place {item.price}</>}</button></article>; })}</div></section>;
 }
 
 function NavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: IconName; label: string }) { return <button className={active ? "active" : ""} onClick={onClick}><Icon name={icon} /><span>{label}</span></button>; }
