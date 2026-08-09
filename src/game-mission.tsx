@@ -66,7 +66,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
       const options = shuffle(task.options);
       const acceptedAnswer = game === "repair" ? completedSentence(task, task.answer) : task.answer;
       const displayPrompt = game === "repair"
-        ? `Build this sentence: ${task.prompt}`
+        ? `Grammar target: ${task.topic} · ${task.level}`
         : game === "code"
           ? taskIndex % 3 === 0 ? `Enemy challenge: ${task.prompt}` : taskIndex % 3 === 1 ? `Shield test: ${task.prompt}` : `Final shot: ${task.prompt}`
           : task.prompt;
