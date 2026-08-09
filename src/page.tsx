@@ -169,7 +169,7 @@ export default function Home() {
 
   function saveProfile() {
     const clean = { ...draft, name: draft.name.trim() || "Explorer", lastVisit: draft.lastVisit || today() };
-    commitProfile(clean); setLevel(clean.level); setProfileOpen(false); if (soundOn) playSound("select", soundVolume);
+    commitProfile(clean); setLevel(clean.level); setProfileOpen(false); if (soundOn && soundVolume > 0) playSound("select", soundVolume);
   }
   function commitProfile(next: Profile, nextHistory = history) { const awarded = unlockAchievements(next, nextHistory); setProfile(awarded); setDraft(awarded); window.localStorage.setItem("grammar-galaxy-profile", JSON.stringify(awarded)); }
   function buyOrEquip(item: (typeof shopItems)[number]) {
@@ -178,25 +178,22 @@ export default function Home() {
     const displayed = current.equippedItems.includes(item.id);
     if (owned) {
       const equippedItems = displayed ? current.equippedItems.filter((id) => id !== item.id) : [...new Set([...current.equippedItems, item.id])];
-      if (soundOn) playSound(displayed ? "remove" : "place", soundVolume);
+      if (soundOn && soundVolume > 0) playSound(displayed ? "remove" : "place", soundVolume);
       return commitProfile({ ...current, equippedItems, equipped: equippedItems[0] ?? null });
     }
     if (current.stardust >= item.price) {
       const purchases = [...new Set([...current.purchases, item.id])];
-      const equippedItems = [...new Set([...current.equippedItems, item.id])];
-      if (soundOn) playSound("purchase", soundVolume);
-      commitProfile({ ...current, stardust: current.stardust - item.price, purchases, equippedItems, equipped: equippedItems[0] ?? null, newCabinItem: item.id });
-      setView("cabin");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (soundOn && soundVolume > 0) playSound("purchase", soundVolume);
+      commitProfile({ ...current, stardust: current.stardust - item.price, purchases, newCabinItem: item.id });
     }
   }
   function clearCabinArrival() {
     const current = profile ?? emptyProfile;
     if (current.newCabinItem) commitProfile({ ...current, newCabinItem: null });
   }
-  function buyHint() { const current = profile ?? emptyProfile; if (current.stardust >= 35 && current.hints < 9) { if (soundOn) playSound("purchase", soundVolume); commitProfile({ ...current, stardust: current.stardust - 35, hints: current.hints + 1 }); } }
-  function useHint() { const current = profile ?? emptyProfile; if (current.hints <= 0) return false; if (soundOn) playSound("hint", soundVolume); commitProfile({ ...current, hints: current.hints - 1 }); return true; }
-  function nav(next: View) { if (soundOn) playSound("navigate", soundVolume); setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function buyHint() { const current = profile ?? emptyProfile; if (current.stardust >= 35 && current.hints < 9) { if (soundOn && soundVolume > 0) playSound("purchase", soundVolume); commitProfile({ ...current, stardust: current.stardust - 35, hints: current.hints + 1 }); } }
+  function useHint() { const current = profile ?? emptyProfile; if (current.hints <= 0) return false; if (soundOn && soundVolume > 0) playSound("hint", soundVolume); commitProfile({ ...current, hints: current.hints - 1 }); return true; }
+  function nav(next: View) { if (soundOn && soundVolume > 0) playSound("navigate", soundVolume); setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
   return <div className="app-shell">
     <div className="stars" aria-hidden="true" />
@@ -231,7 +228,7 @@ export default function Home() {
       const perfect = reward.correct === reward.total;
       const updated = { ...current, xp: current.xp + reward.xp, stardust: current.stardust + reward.stardust, missions: current.missions + 1, hints: Math.min(9, current.hints + (perfect ? 1 : 0)), perfectMissions: current.perfectMissions + (perfect ? 1 : 0) };
       const nextHistory = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]") as HistoryItem[];
-      if (soundOn) { playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./jingle-achievement.mp3" : "./jingle-mission-complete.mp3", soundVolume); }
+      if (soundOn && soundVolume > 0) { playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./jingle-achievement.mp3" : "./jingle-mission-complete.mp3", soundVolume); }
       setHistory(nextHistory); commitProfile(updated, nextHistory); setMission(null); setView("profile");
     }} />}
 
@@ -266,16 +263,17 @@ function Cabin({ profile, onShop, onToggleItem, onArrivalComplete }: { profile: 
 }
 
 function Shop({ profile, onBuy, onBuyHint }: { profile: Profile; onBuy: (item: (typeof shopItems)[number]) => void; onBuyHint: () => void }) {
-  return <section className="section shop-page"><div className="shop-hero"><img src="./assets/scenes/shop.webp" alt="A futuristic orbital rewards boutique" /><div><span className="eyebrow">ORBITAL MARKET</span><h2>Space Shop</h2><p>Spend mission Stardust on twenty illustrated cabin objects or recharge a limited hint.</p><span className="shop-balance"><Icon name="dust" />{profile.stardust} Stardust</span></div></div><div className="shop-catalog-title"><div><span className="eyebrow">CABIN COLLECTION</span><h3>Twenty objects to collect</h3></div><span>{profile.purchases.length} owned · {profile.equippedItems.length} displayed</span></div><div className="shop-grid"><article className="shop-card hint-card"><img src="./assets/decor/object-08.webp" alt="Blue hint crystal" /><h3>Hint Charge</h3><p>One rule reminder for a difficult question. Maximum 9 charges.</p><button className="primary-button small" onClick={onBuyHint} disabled={profile.stardust < 35 || profile.hints >= 9}><Icon name="dust" />35</button></article>{shopItems.map((item) => { const owned = profile.purchases.includes(item.id); const displayed = profile.equippedItems.includes(item.id); return <article className={`shop-card ${displayed ? "equipped" : ""}`} key={item.id}><img src={item.image} alt={item.name} /><h3>{item.name}</h3><p>{displayed ? "Displayed in your cabin" : owned ? "Purchased and ready to place" : item.kind}</p><button className="primary-button small" onClick={() => onBuy(item)} disabled={!owned && profile.stardust < item.price}>{displayed ? <><Icon name="check" />Store item</> : owned ? "Display item" : <><Icon name="dust" />Buy + place {item.price}</>}</button></article>; })}</div></section>;
+  return <section className="section shop-page"><div className="shop-hero"><img src="./assets/scenes/shop.webp" alt="A futuristic orbital rewards boutique" /><div><span className="eyebrow">ORBITAL MARKET</span><h2>Space Shop</h2><p>Spend mission Stardust on twenty illustrated cabin objects or recharge a limited hint.</p><span className="shop-balance"><Icon name="dust" />{profile.stardust} Stardust</span></div></div><div className="shop-catalog-title"><div><span className="eyebrow">CABIN COLLECTION</span><h3>Twenty objects to collect</h3></div><span>{profile.purchases.length} owned / {profile.equippedItems.length} displayed</span></div><div className="shop-grid"><article className="shop-card hint-card"><img src="./assets/decor/object-08.webp" alt="Blue hint crystal" /><h3>Hint Charge</h3><p>One rule reminder for a difficult question. Maximum 9 charges.</p><button className="primary-button small" onClick={onBuyHint} disabled={profile.stardust < 35 || profile.hints >= 9}><Icon name="dust" />35</button></article>{shopItems.map((item) => { const owned = profile.purchases.includes(item.id); const displayed = profile.equippedItems.includes(item.id); return <article className={`shop-card ${owned ? "owned" : ""} ${displayed ? "equipped" : ""}`} key={item.id}><img src={item.image} alt={item.name} /><h3>{item.name}</h3><p>{displayed ? "Placed in your cabin" : owned ? "Owned. Open the cabin to place it." : item.kind}</p><button className="primary-button small" onClick={() => onBuy(item)} disabled={!owned && profile.stardust < item.price}>{displayed ? "Remove from cabin" : owned ? "Place in cabin" : <><Icon name="dust" />Buy {item.price}</>}</button></article>; })}</div></section>;
 }
-
 function NavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: IconName; label: string }) { return <button className={active ? "active" : ""} onClick={onClick}><Icon name={icon} /><span>{label}</span></button>; }
 function Modal({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) { return <div className="modal-backdrop" role="dialog" aria-modal="true"><div className="modal-card">{onClose && <button className="modal-close" onClick={onClose} aria-label="Close"><Icon name="close" /></button>}{children}</div></div>; }
 function Toggle({ label, description, value, onChange, icon }: { label: string; description: string; value: boolean; onChange: (value: boolean) => void; icon: IconName }) { return <div className="setting-row"><span className="setting-icon"><Icon name={icon} /></span><div><b>{label}</b><small>{description}</small></div><button className={`toggle ${value ? "on" : ""}`} onClick={() => onChange(!value)} aria-pressed={value}><i /></button></div>; }
 function Volume({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) { return <label className="volume-row"><span>{label}</span><input type="range" min="0" max="100" value={value} onChange={(event) => onChange(Number(event.target.value))} /><b>{value}%</b></label>; }
 function AudioDock({ musicOn, soundOn, musicVolume, soundVolume, onMusic, onSound, onMusicVolume, onSoundVolume }: { musicOn: boolean; soundOn: boolean; musicVolume: number; soundVolume: number; onMusic: (value: boolean) => void; onSound: (value: boolean) => void; onMusicVolume: (value: number) => void; onSoundVolume: (value: number) => void }) {
   const [open, setOpen] = useState(false);
-  return <aside className={`audio-dock ${open ? "open" : ""}`} aria-label="Audio controls"><button className="audio-dock-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open}><Icon name="music" /><span>Audio</span></button><div className="audio-dock-panel"><div className="audio-dock-title"><b>Audio control</b><small>Available everywhere</small></div><label><button onClick={() => onMusic(!musicOn)} aria-pressed={musicOn}><Icon name="music" /><span>Music</span><i className={musicOn ? "on" : ""} /></button><input aria-label="Music volume" type="range" min="0" max="100" value={musicVolume} onChange={(event) => onMusicVolume(Number(event.target.value))} /><b>{musicVolume}%</b></label><label><button onClick={() => { onSound(!soundOn); if (!soundOn) window.setTimeout(() => playSound("select", soundVolume), 0); }} aria-pressed={soundOn}><Icon name="sound" /><span>Effects</span><i className={soundOn ? "on" : ""} /></button><input aria-label="Effects volume" type="range" min="0" max="100" value={soundVolume} onChange={(event) => onSoundVolume(Number(event.target.value))} /><b>{soundVolume}%</b></label></div></aside>;
+  const setMusicVolume = (value: number) => { onMusicVolume(value); onMusic(value > 0); };
+  const setEffectsVolume = (value: number) => { onSoundVolume(value); onSound(value > 0); };
+  return <aside className={`audio-dock ${open ? "open" : ""}`} aria-label="Audio controls"><button className="audio-dock-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open}><Icon name="music" /><span>Audio</span></button><div className="audio-dock-panel"><div className="audio-dock-title"><b>Audio control</b><small>Available everywhere</small></div><label><button onClick={() => { const enabled = !(musicOn && musicVolume > 0); onMusic(enabled); if (enabled && musicVolume === 0) onMusicVolume(24); }} aria-pressed={musicOn && musicVolume > 0}><Icon name="music" /><span>Music</span><i className={musicOn && musicVolume > 0 ? "on" : ""} /></button><input aria-label="Music volume" type="range" min="0" max="100" value={musicOn ? musicVolume : 0} onChange={(event) => setMusicVolume(Number(event.target.value))} /><b>{musicOn ? musicVolume : 0}%</b></label><label><button onClick={() => { const enabled = !(soundOn && soundVolume > 0); onSound(enabled); if (enabled && soundVolume === 0) { onSoundVolume(55); window.setTimeout(() => playSound("select", 55), 0); } else if (enabled) window.setTimeout(() => playSound("select", soundVolume), 0); }} aria-pressed={soundOn && soundVolume > 0}><Icon name="sound" /><span>Effects</span><i className={soundOn && soundVolume > 0 ? "on" : ""} /></button><input aria-label="Effects volume" type="range" min="0" max="100" value={soundOn ? soundVolume : 0} onChange={(event) => setEffectsVolume(Number(event.target.value))} /><b>{soundOn ? soundVolume : 0}%</b></label></div></aside>;
 }
 function Stat({ icon, value, label }: { icon: IconName; value: number; label: string }) { return <article className="profile-card stat-card"><span><Icon name={icon} /></span><b>{value}</b><small>{label}</small></article>; }
 

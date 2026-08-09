@@ -66,12 +66,9 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
         : game === "code"
           ? taskIndex % 3 === 0 ? `Enemy challenge: ${task.prompt}` : taskIndex % 3 === 1 ? `Shield test: ${task.prompt}` : `Final shot: ${task.prompt}`
           : task.prompt;
-      const fullChoice = game === "race" && taskIndex % 2 === 1 && task.prompt.includes("___");
-      const choiceLabels = fullChoice
-        ? options.map((option) => completedSentence(task, option))
-        : options;
+      const choiceLabels = options;
       const instruction = game === "race"
-        ? fullChoice ? "Fly to the planet with the only complete correct sentence." : "Choose the grammar form that completes the route log."
+        ? "Choose the grammar form that completes the route log."
         : game === "repair"
           ? "Tap the word modules in the right order, then lock the sentence."
           : "Choose the correct grammar shot before the rival drone breaks your shield.";
@@ -121,7 +118,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     const correct = normalized(answer) === normalized(task.answer);
     const nextRecords = [...records, { task, chosen: answer, correct }];
     setConfirmed(true); setRecords(nextRecords);
-    if (soundOn) playSound(game === "race" ? "launch" : game === "repair" ? "repair" : correct ? "transmit" : "remove", soundVolume);
+    if (soundOn && soundVolume > 0) playSound(game === "race" ? "launch" : game === "repair" ? "repair" : correct ? "transmit" : "remove", soundVolume);
     if (advanceAutomatically) window.setTimeout(() => advance(nextRecords), game === "race" ? 1050 : game === "repair" ? 650 : 780);
   }
   function advance(answerRecords = records) {
@@ -129,7 +126,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     setIndex((value) => value + 1); setSelected(""); setConfirmed(false); setHintShown(false);
   }
   function finish(finalRecords = records) {
-    setShowResult(true); if (soundOn) { playSound("reward", soundVolume); playNamedJingle("./jingle-mission-complete.mp3", soundVolume); }
+    setShowResult(true); if (soundOn && soundVolume > 0) { playSound("reward", soundVolume); playNamedJingle("./jingle-mission-complete.mp3", soundVolume); }
     const reward = rewardFor(finalRecords);
     const history = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]");
     history.unshift({ id: `${Date.now()}`, date: new Date().toISOString(), game, level, topic, correct: reward.correct, total: missionTasks.length, xp: reward.xp, stardust: reward.stardust, seconds: Math.round((Date.now() - startTime.current) / 1000), usedHints });
@@ -146,13 +143,13 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
 
   return <div className={`mission-overlay game-screen ${game}`} style={{ "--mission-bg": `url(./assets/scenes/${game}.webp)` } as React.CSSProperties}>
     <div className="mission-effects" aria-hidden="true"><i /><i /><i /><i /><i /><span /></div>
-    <div className="mission-topbar"><button className="mission-exit" onClick={() => { if (soundOn) playSound("navigate", soundVolume); onExit(); }}><MissionIcon name="exit" />Exit</button><div><b>{info.title}</b><small>{topic} · {level}</small></div><span className="mission-counter">{game === "race" && <b className={timeLeft <= 5 ? "danger" : ""}><MissionIcon name="clock" />{timeLeft}s</b>}<span>{index + 1} / {missionTasks.length}</span></span></div>
+    <div className="mission-topbar"><button className="mission-exit" onClick={() => { if (soundOn && soundVolume > 0) playSound("navigate", soundVolume); onExit(); }}><MissionIcon name="exit" />Exit</button><div><b>{info.title}</b><small>{topic} · {level}</small></div><span className="mission-counter">{game === "race" && <b className={timeLeft <= 5 ? "danger" : ""}><MissionIcon name="clock" />{timeLeft}s</b>}<span>{index + 1} / {missionTasks.length}</span></span></div>
     <div className="mission-progress" aria-label={`${index + (confirmed ? 1 : 0)} of ${missionTasks.length} answered`}><span style={{ width: `${((index + (confirmed ? 1 : 0)) / missionTasks.length) * 100}%` }} /></div>
     <div className="mission-stage" key={`${task.id}-${index}`}>
       <GameProgress game={game} correct={correctCount} total={missionTasks.length} />
       <article className="question-card"><div className="question-meta"><span>{game === "race" ? "PLOT A COURSE TO THE RIGHT PLANET" : game === "repair" ? "BUILD THE SENTENCE" : "GRAMMAR DUEL"}</span><button className="hint-button" disabled={confirmed || hintShown || hints <= 0} onClick={revealHint}><MissionIcon name="hint" /><span>Hint charge</span><b>{hints}</b></button></div><p className="challenge-lead">{task.instruction}</p><div className={`transmission ${game}`}>{task.displayPrompt}</div>{hintShown && <div className="hint-panel"><MissionIcon name="hint" /><p>{ruleHint(topic)}</p></div>}
         {game === "race" && <PlanetRoute options={task.options} labels={task.choiceLabels} selected={selected} disabled={confirmed} collected={correctCount} onSelect={(option) => { setSelected(option); confirmAnswer(option, true); }} />}
-        {game === "repair" && <SentenceBuilder task={task} disabled={confirmed} onFragment={() => { if (soundOn) playSound("fragment", soundVolume); }} onRemove={() => { if (soundOn) playSound("remove", soundVolume); }} onSubmit={(answer) => confirmAnswer(answer, true)} />}
+        {game === "repair" && <SentenceBuilder task={task} disabled={confirmed} onFragment={() => { if (soundOn && soundVolume > 0) playSound("fragment", soundVolume); }} onRemove={() => { if (soundOn && soundVolume > 0) playSound("remove", soundVolume); }} onSubmit={(answer) => confirmAnswer(answer, true)} />}
         {game === "code" && <GrammarDuel task={task} selected={selected} disabled={confirmed} correct={correctCount} total={missionTasks.length} onSelect={(option) => { setSelected(option); confirmAnswer(option, true); }} />}
         {confirmed && <div className="answer-saved">Answer saved. Moving to the next task.</div>}
       </article>
