@@ -158,7 +158,7 @@ export default function Home() {
         equippedItems.push("crystal");
       }
       let parsed = unlockAchievements({ ...emptyProfile, ...raw, avatar: migratedAvatar, purchases, equippedItems, equipped: equippedItems[0] ?? null } as Profile, savedHistory);
-      if (parsed.lastVisit && parsed.lastVisit !== today()) parsed = { ...parsed, streak: parsed.streak + 1, hints: Math.min(7, parsed.hints + 1), lastVisit: today() };
+      if (parsed.lastVisit && parsed.lastVisit !== today()) parsed = { ...parsed, streak: parsed.streak + 1, lastVisit: today() };
       if (!parsed.lastVisit) parsed.lastVisit = today();
       setProfile(parsed); setDraft(parsed); setLevel(parsed.level);
       window.localStorage.setItem("grammar-galaxy-profile", JSON.stringify(parsed));
@@ -245,7 +245,7 @@ export default function Home() {
     {mission && <GameMission game={mission.game} topic={mission.topic} level={mission.level} soundOn={soundOn} soundVolume={soundVolume} hints={profile?.hints ?? 0} onUseHint={useHint} onExit={() => setMission(null)} onComplete={(reward) => {
       const current = profile ?? emptyProfile;
       const perfect = reward.correct === reward.total;
-      const updated = { ...current, xp: current.xp + reward.xp, stardust: current.stardust + reward.stardust, missions: current.missions + 1, hints: Math.min(9, current.hints + (perfect ? 1 : 0)), perfectMissions: current.perfectMissions + (perfect ? 1 : 0) };
+      const updated = { ...current, xp: current.xp + reward.xp, stardust: current.stardust + reward.stardust, missions: current.missions + 1, hints: Math.min(9, current.hints + 1), perfectMissions: current.perfectMissions + (perfect ? 1 : 0) };
       const nextHistory = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]") as HistoryItem[];
       if (soundOn && soundVolume > 0) { stopNamedJingles(); playSound(perfect ? "achievement" : "reward", soundVolume); playNamedJingle(perfect ? "./jingle-achievement.mp3" : "./jingle-mission-complete.mp3", soundVolume); }
       setHistory(nextHistory); commitProfile(updated, nextHistory); setMission(null); setView("profile");
