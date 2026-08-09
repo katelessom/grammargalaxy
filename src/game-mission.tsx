@@ -11,6 +11,7 @@ type MissionTask = GrammarTask & {
   choiceLabels: string[];
   displayPrompt: string;
   instruction: string;
+  acceptedAnswer: string;
 };
 type AnswerRecord = { task: MissionTask; chosen: string; correct: boolean };
 
@@ -31,6 +32,8 @@ function shuffle<T>(items: readonly T[]) {
 
 function normalized(value: string) { return value.trim().toLowerCase().replace(/[’']/g, "'").replace(/\s*\/\s*/g, "/").replace(/\s+/g, " "); }
 function completedSentence(task: GrammarTask, answer: string) { return task.prompt.includes("___") ? task.prompt.replace("___", answer) : `${task.prompt} ${answer}`; }
+function sentenceWords(value: string) { return value.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)?|[.,!?;:]/g) ?? []; }
+function joinSentenceParts(parts: string[]) { return parts.join(" ").replace(/\s+([.,!?;:])/g, "$1"); }
 
 function ruleHint(topic: string) {
   const hints: Record<string, string> = {
@@ -51,18 +54,19 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
   game: GameId; level: Level; topic: string; soundOn: boolean; soundVolume: number; hints: number; onUseHint: () => boolean; onExit: () => void;
   onComplete: (reward: { xp: number; stardust: number; correct: number; total: number }) => void;
 }) {
-  const key = `grammar-galaxy-seen-${game}-${level}-${topic}`;
+  const key = `grammar-galaxy-seen-${level}-${topic}`;
   const missionTasks = useMemo<MissionTask[]>(() => {
     const pool = tasksFor(level, topic);
     const lane = game === "race" ? 0 : game === "repair" ? 1 : 2;
-    const offset = pool.length ? (lane * 10) % pool.length : 0;
+    const offset = pool.length ? (lane * Math.ceil(pool.length / 3)) % pool.length : 0;
     const laneOrdered = [...pool.slice(offset), ...pool.slice(0, offset)];
     const seen: string[] = typeof window === "undefined" ? [] : JSON.parse(window.localStorage.getItem(key) || "[]");
     const ordered = [...shuffle(laneOrdered.filter((task) => !seen.includes(task.id))), ...shuffle(laneOrdered.filter((task) => seen.includes(task.id)))].slice(0, Math.min(10, pool.length));
     return ordered.map((task, taskIndex) => {
       const options = shuffle(task.options);
+      const acceptedAnswer = game === "repair" ? completedSentence(task, task.answer) : task.answer;
       const displayPrompt = game === "repair"
-        ? task.prompt
+        ? `Build this sentence: ${task.prompt}`
         : game === "code"
           ? taskIndex % 3 === 0 ? `Enemy challenge: ${task.prompt}` : taskIndex % 3 === 1 ? `Shield test: ${task.prompt}` : `Final shot: ${task.prompt}`
           : task.prompt;
@@ -70,9 +74,9 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
       const instruction = game === "race"
         ? "Choose the grammar form that completes the route log."
         : game === "repair"
-          ? "Tap the word modules in the right order, then lock the sentence."
+          ? "Build the complete sentence from the word modules."
           : "Choose the correct grammar shot before the rival drone breaks your shield.";
-      return { ...task, options, choiceLabels, displayPrompt, instruction };
+      return { ...task, options, choiceLabels, displayPrompt, instruction, acceptedAnswer };
     });
   }, [game, key, level, topic]);
   const [index, setIndex] = useState(0);
@@ -115,7 +119,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     if (confirmed || !task) return;
     const answer = forced ?? selected;
     if (!answer.trim()) return;
-    const correct = normalized(answer) === normalized(task.answer);
+    const correct = normalized(answer) === normalized(task.acceptedAnswer);
     const nextRecords = [...records, { task, chosen: answer, correct }];
     setConfirmed(true); setRecords(nextRecords);
     if (soundOn && soundVolume > 0) playSound(game === "race" ? "launch" : game === "repair" ? "repair" : correct ? "transmit" : "remove", soundVolume);
@@ -131,7 +135,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
     const history = JSON.parse(window.localStorage.getItem("grammar-galaxy-history") || "[]");
     history.unshift({ id: `${Date.now()}`, date: new Date().toISOString(), game, level, topic, correct: reward.correct, total: missionTasks.length, xp: reward.xp, stardust: reward.stardust, seconds: Math.round((Date.now() - startTime.current) / 1000), usedHints });
     window.localStorage.setItem("grammar-galaxy-history", JSON.stringify(history.slice(0, 100)));
-    const mistakes = finalRecords.filter((record) => !record.correct).map((record) => ({ id: record.task.id, prompt: record.task.prompt, chosen: record.chosen, answer: record.task.answer, explanation: record.task.explanation, level, topic }));
+    const mistakes = finalRecords.filter((record) => !record.correct).map((record) => ({ id: record.task.id, prompt: record.task.prompt, chosen: record.chosen, answer: record.task.acceptedAnswer, explanation: record.task.explanation, level, topic }));
     const oldMistakes = JSON.parse(window.localStorage.getItem("grammar-galaxy-mistakes") || "[]");
     window.localStorage.setItem("grammar-galaxy-mistakes", JSON.stringify([...mistakes, ...oldMistakes].slice(0, 200)));
   }
@@ -139,7 +143,7 @@ export default function GameMission({ game, level, topic, soundOn, soundVolume, 
 
   if (!task) return <div className="mission-overlay"><div className="empty-mission"><img src="./assets/ui/emblem-03.webp" alt="" /><h2>No tasks in this sector yet</h2><p>Choose another topic or level.</p><button className="primary-button" onClick={onExit}>Back to missions</button></div></div>;
 
-  if (showResult) return <div className={`mission-overlay results-screen ${game}`}><div className="cosmic-celebration" aria-hidden="true"><span className="celebration-wave" />{Array.from({ length: 56 }, (_, star) => <i style={{ "--x": `${(star * 37) % 100}%`, "--delay": `${-(star % 13) * .17}s`, "--duration": `${1.8 + (star % 7) * .22}s`, "--size": `${4 + (star % 4) * 2}px` } as React.CSSProperties} key={star} />)}{Array.from({ length: 4 }, (_, streak) => <b style={{ "--streak": streak } as React.CSSProperties} key={streak} />)}</div><div className="results-panel"><img className="result-cup" src={accuracy >= 80 ? "./assets/decor/object-15.webp" : "./assets/ui/emblem-06.webp"} alt="Mission award" /><span className="eyebrow">MISSION COMPLETE</span><h2>{accuracy >= 80 ? "Brilliant flight!" : accuracy >= 50 ? "Mission accomplished!" : "Training data collected"}</h2><p>{info.title} · {topic} · {level}</p><div className="result-stats"><div><b>{correctCount}/{missionTasks.length}</b><span>Correct</span></div><div><b>{accuracy}%</b><span>Accuracy</span></div><div><b>+{xp}</b><span>XP</span></div><div><b>+{stardust}</b><span>Stardust</span></div></div><div className="answer-report"><div className="report-heading"><h3>Answer report</h3><p>Correct sentences and comments appear here only after the complete mission.</p></div>{records.map((record, recordIndex) => <article className={record.correct ? "report-correct" : "report-wrong"} key={record.task.id}><span className="report-number">{recordIndex + 1}</span><div><b>{completedSentence(record.task, record.task.answer)}</b><p>Your answer: <em>{record.chosen}</em></p>{!record.correct && <p>Correct answer: <strong>{record.task.answer}</strong></p>}<small>{record.task.explanation}</small></div><span className="report-status"><MissionIcon name={record.correct ? "check" : "close"} /></span></article>)}</div><div className="results-actions"><button className="primary-button" onClick={() => onComplete({ xp, stardust, correct: correctCount, total: missionTasks.length })}>Collect rewards</button></div></div></div>;
+  if (showResult) return <div className={`mission-overlay results-screen ${game}`}><div className="cosmic-celebration" aria-hidden="true"><span className="celebration-wave" />{Array.from({ length: 56 }, (_, star) => <i style={{ "--x": `${(star * 37) % 100}%`, "--delay": `${-(star % 13) * .17}s`, "--duration": `${1.8 + (star % 7) * .22}s`, "--size": `${4 + (star % 4) * 2}px` } as React.CSSProperties} key={star} />)}{Array.from({ length: 4 }, (_, streak) => <b style={{ "--streak": streak } as React.CSSProperties} key={streak} />)}</div><div className="results-panel"><img className="result-cup" src={accuracy >= 80 ? "./assets/decor/object-15.webp" : "./assets/ui/emblem-06.webp"} alt="Mission award" /><span className="eyebrow">MISSION COMPLETE</span><h2>{accuracy >= 80 ? "Brilliant flight!" : accuracy >= 50 ? "Mission accomplished!" : "Training data collected"}</h2><p>{info.title} · {topic} · {level}</p><div className="result-stats"><div><b>{correctCount}/{missionTasks.length}</b><span>Correct</span></div><div><b>{accuracy}%</b><span>Accuracy</span></div><div><b>+{xp}</b><span>XP</span></div><div><b>+{stardust}</b><span>Stardust</span></div></div><div className="answer-report"><div className="report-heading"><h3>Answer report</h3><p>Correct sentences and comments appear here only after the complete mission.</p></div>{records.map((record, recordIndex) => <article className={record.correct ? "report-correct" : "report-wrong"} key={record.task.id}><span className="report-number">{recordIndex + 1}</span><div><b>{record.task.acceptedAnswer}</b><p>Your answer: <em>{record.chosen}</em></p>{!record.correct && <p>Correct answer: <strong>{record.task.acceptedAnswer}</strong></p>}<small>{record.task.explanation}</small></div><span className="report-status"><MissionIcon name={record.correct ? "check" : "close"} /></span></article>)}</div><div className="results-actions"><button className="primary-button" onClick={() => onComplete({ xp, stardust, correct: correctCount, total: missionTasks.length })}>Collect rewards</button></div></div></div>;
 
   return <div className={`mission-overlay game-screen ${game}`} style={{ "--mission-bg": `url(./assets/scenes/${game}.webp)` } as React.CSSProperties}>
     <div className="mission-effects" aria-hidden="true"><i /><i /><i /><i /><i /><span /></div>
@@ -164,8 +168,9 @@ function PlanetRoute({ options, labels, selected, disabled, collected, onSelect 
 
 type CodeFragment = { id: string; label: string };
 
-function codePlan(value: string) {
+function codePlan(value: string, mode: "answer" | "sentence" = "answer") {
   const clean = value.trim();
+  if (mode === "sentence") return { parts: sentenceWords(clean), joiner: " " };
   if (clean.includes("/")) return { parts: clean.split("/").map((part) => part.trim()).filter(Boolean), joiner: " / " };
   if (clean.includes(" ")) return { parts: clean.split(/\s+/).filter(Boolean), joiner: " " };
   const suffix = ["ing", "est", "ed", "es", "er", "s"].find((ending) => clean.length > ending.length + 2 && clean.endsWith(ending));
@@ -173,18 +178,16 @@ function codePlan(value: string) {
 }
 
 function SentenceBuilder({ task, disabled, onFragment, onRemove, onSubmit }: { task: MissionTask; disabled: boolean; onFragment: () => void; onRemove: () => void; onSubmit: (answer: string) => void }) {
-  const plan = useMemo(() => codePlan(task.answer), [task.answer]);
+  const plan = useMemo(() => codePlan(task.acceptedAnswer, "sentence"), [task.acceptedAnswer]);
   const fragments = useMemo<CodeFragment[]>(() => {
     const correct = plan.parts.map((label, index) => ({ id: `core-${index}-${label}`, label }));
-    const decoyLabels = plan.parts.length === 1
-      ? task.options.filter((option) => normalized(option) !== normalized(task.answer))
-      : task.options.filter((option) => normalized(option) !== normalized(task.answer)).flatMap((option) => codePlan(option).parts);
-    const decoys = decoyLabels.slice(0, Math.max(3, 8 - correct.length)).map((label, index) => ({ id: `noise-${index}-${label}`, label }));
+    const decoyLabels = task.options.filter((option) => normalized(option) !== normalized(task.answer)).flatMap((option) => sentenceWords(option));
+    const decoys = [...new Set(decoyLabels)].slice(0, Math.min(5, Math.max(2, 14 - correct.length))).map((label, index) => ({ id: `noise-${index}-${label}`, label }));
     return shuffle([...correct, ...decoys]);
   }, [plan.parts, task.answer, task.options]);
   const [sequence, setSequence] = useState<CodeFragment[]>([]);
   const used = new Set(sequence.map((fragment) => fragment.id));
-  const built = sequence.map((fragment) => fragment.label).join(plan.joiner);
+  const built = joinSentenceParts(sequence.map((fragment) => fragment.label));
 
   function add(fragment: CodeFragment) {
     if (disabled || sequence.length >= plan.parts.length || used.has(fragment.id)) return;
@@ -201,7 +204,7 @@ function SentenceBuilder({ task, disabled, onFragment, onRemove, onSubmit }: { t
     <div className="builder-console">
       <div className="decoder-header"><span>SENTENCE MODULES</span><small>{sequence.length} / {plan.parts.length} placed</small></div>
       <div className="decoder-slots">{Array.from({ length: plan.parts.length }, (_, slot) => <button disabled={disabled || !sequence[slot]} onClick={() => remove(slot)} className={sequence[slot] ? "filled" : ""} aria-label={sequence[slot] ? `Remove ${sequence[slot].label}` : `Empty sentence position ${slot + 1}`} key={slot}>{sequence[slot]?.label ?? ""}</button>)}</div>
-      <p className="builder-preview">{sequence.length ? completedSentence(task, built) : "Build the missing phrase from left to right."}</p>
+      <p className="builder-preview">{sequence.length ? built : "Build the whole sentence from left to right."}</p>
     </div>
     <div className="code-fragment-bank builder-bank">{fragments.map((fragment, fragmentIndex) => <button disabled={disabled || used.has(fragment.id) || sequence.length >= plan.parts.length} onClick={() => add(fragment)} style={{ "--fragment": fragmentIndex } as React.CSSProperties} key={fragment.id}><span>{fragment.label}</span><i aria-hidden="true" /></button>)}</div>
     <div className="code-controls"><button className="glass-button" disabled={disabled || sequence.length === 0} onClick={() => { onRemove(); setSequence([]); }}>Clear build</button><button className="primary-button" disabled={disabled || sequence.length !== plan.parts.length} onClick={() => onSubmit(built)}>Lock sentence</button></div>
@@ -211,11 +214,13 @@ function SentenceBuilder({ task, disabled, onFragment, onRemove, onSubmit }: { t
 function GrammarDuel({ task, selected, disabled, correct, total, onSelect }: { task: MissionTask; selected: string; disabled: boolean; correct: number; total: number; onSelect: (option: string) => void }) {
   const enemyPower = Math.max(8, 100 - (correct / total) * 100);
   const shield = Math.max(12, 100 - ((total - correct) / total) * 34);
+  const selectedCorrect = selected ? normalized(selected) === normalized(task.answer) : false;
   return <div className="grammar-duel">
-    <div className="duel-arena" aria-hidden="true">
-      <div className="duel-pilot"><img src="./assets/cabin-items/shield.png" alt="" /><span>Shield {Math.round(shield)}%</span><i><b style={{ width: `${shield}%` }} /></i></div>
-      <div className={`duel-beam ${selected ? "fired" : ""}`} />
-      <div className="duel-enemy"><img src="./assets/decor/repair-11.webp" alt="" /><span>Drone {Math.round(enemyPower)}%</span><i><b style={{ width: `${enemyPower}%` }} /></i></div>
+    <div className={`duel-arena ${selected ? "shot-fired" : ""} ${selectedCorrect ? "shot-hit" : selected ? "shot-miss" : ""}`} aria-hidden="true">
+      <div className="duel-stars">{Array.from({ length: 18 }, (_, spark) => <i style={{ "--spark": spark } as React.CSSProperties} key={spark} />)}</div>
+      <div className="duel-pilot"><div className="shield-dome"><img src="./assets/cabin-items/shield.png" alt="" /></div><span>Shield {Math.round(shield)}%</span><i><b style={{ width: `${shield}%` }} /></i></div>
+      <div className="duel-lane"><span className="duel-reticle" /><div className="duel-beam"><b /></div><span className="duel-charge" /></div>
+      <div className="duel-enemy"><div className="enemy-dock"><img src="./assets/decor/repair-11.webp" alt="" /><span /></div><span>Drone {Math.round(enemyPower)}%</span><i><b style={{ width: `${enemyPower}%` }} /></i></div>
     </div>
     <div className="duel-options">{task.options.map((option, optionIndex) => <button disabled={disabled} className={selected === option ? "selected" : ""} onClick={() => onSelect(option)} style={{ "--delay": optionIndex } as React.CSSProperties} key={option}><span>Shot {String.fromCharCode(65 + optionIndex)}</span><b>{option}</b></button>)}</div>
   </div>;
