@@ -142,6 +142,10 @@ export default function Home() {
       const migratedDisplay = (raw.equippedItems?.length ? raw.equippedItems : previousEquipped ? [previousEquipped] : []).map(normaliseShopId).filter((id) => validIds.has(id));
       const equippedItems = [...new Set(migratedDisplay)];
       equippedItems.forEach((id) => { if (!purchases.includes(id)) purchases.push(id); });
+      if (!purchases.length && !equippedItems.length && typeof raw.stardust === "number" && raw.stardust < emptyProfile.stardust) {
+        purchases.push("crystal");
+        equippedItems.push("crystal");
+      }
       let parsed = unlockAchievements({ ...emptyProfile, ...raw, avatar: migratedAvatar, purchases, equippedItems, equipped: equippedItems[0] ?? null } as Profile, savedHistory);
       if (parsed.lastVisit && parsed.lastVisit !== today()) parsed = { ...parsed, streak: parsed.streak + 1, hints: Math.min(7, parsed.hints + 1), lastVisit: today() };
       if (!parsed.lastVisit) parsed.lastVisit = today();
@@ -186,6 +190,8 @@ export default function Home() {
       const equippedItems = [...new Set([...current.equippedItems, item.id])];
       if (soundOn && soundVolume > 0) playSound("purchase", soundVolume);
       commitProfile({ ...current, stardust: current.stardust - item.price, purchases, equippedItems, equipped: equippedItems[0] ?? item.id, newCabinItem: item.id });
+      setView("cabin");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
   function clearCabinArrival() {
