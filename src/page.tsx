@@ -111,6 +111,16 @@ const emptyProfile: Profile = { name: "", avatar: "cadet-00", level: "A2", xp: 0
 const cabinItemSrc = (id: string) => `./assets/cabin-items/${id}.png`;
 const avatarSrc = (id: string) => avatars.find((avatar) => avatar.id === id)?.src ?? avatars[0].src;
 const unlockAchievements = (profile: Profile, history: HistoryItem[]) => ({ ...profile, achievements: [...new Set([...profile.achievements, ...achievementDefinitions.filter((award) => award.unlocked(profile, history)).map((award) => award.id)])] });
+const musicState: { audio: HTMLAudioElement | null; track: string; token: number } = { audio: null, track: "", token: 0 };
+
+function stopCurrentMusic() {
+  if (!musicState.audio) return;
+  musicState.audio.pause();
+  musicState.audio.removeAttribute("src");
+  musicState.audio.load();
+  musicState.audio = null;
+  musicState.track = "";
+}
 
 export default function Home() {
   const [view, setView] = useState<View>("home");
@@ -324,7 +334,6 @@ function useCosmicCursor() {
 }
 
 function useLocationMusic(track: string, enabled: boolean, volume: number) {
-  const audio = useRef<HTMLAudioElement | null>(null);
   const fallback = useRef<{ context: AudioContext; gain: GainNode; oscillators: OscillatorNode[] } | null>(null);
   const unlocked = useRef(false);
   useEffect(() => {
@@ -340,14 +349,22 @@ function useLocationMusic(track: string, enabled: boolean, volume: number) {
     };
     const start = () => {
       unlocked.current = true;
-      if (!enabled) return;
+      stopCurrentMusic();
+      if (!enabled || volume <= 0) return;
+      const token = musicState.token + 1;
+      musicState.token = token;
       const named = new Audio(track); named.loop = true; named.preload = "auto"; named.volume = Math.min(1, volume / 100);
-      named.addEventListener("playing", stopFallback, { once: true }); named.addEventListener("error", startFallback, { once: true });
-      audio.current = named; void named.play().catch(startFallback);
+      const startFallbackForCurrent = () => { if (musicState.token === token) startFallback(); };
+      named.addEventListener("playing", stopFallback, { once: true }); named.addEventListener("error", startFallbackForCurrent, { once: true });
+      musicState.audio = named; musicState.track = track; void named.play().catch(() => { if (musicState.token === token) startFallback(); });
     };
     if (unlocked.current) start(); else window.addEventListener("pointerdown", start, { once: true });
-    if (!enabled) { audio.current?.pause(); audio.current = null; stopFallback(); }
-    return () => { window.removeEventListener("pointerdown", start); audio.current?.pause(); audio.current = null; stopFallback(); };
-  }, [enabled, track]);
-  useEffect(() => { if (audio.current) audio.current.volume = Math.min(1, volume / 100); if (fallback.current) fallback.current.gain.gain.setTargetAtTime((volume / 100) * .025, fallback.current.context.currentTime, .08); }, [volume]);
+    if (!enabled || volume <= 0) { stopCurrentMusic(); stopFallback(); }
+    return () => { window.removeEventListener("pointerdown", start); stopCurrentMusic(); stopFallback(); };
+  }, [enabled, track, volume]);
+  useEffect(() => {
+    if (volume <= 0 || !enabled) stopCurrentMusic();
+    else if (musicState.audio) musicState.audio.volume = Math.min(1, volume / 100);
+    if (fallback.current) fallback.current.gain.gain.setTargetAtTime((volume / 100) * .025, fallback.current.context.currentTime, .08);
+  }, [enabled, volume]);
 }
